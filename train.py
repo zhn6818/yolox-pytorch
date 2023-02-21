@@ -11,6 +11,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import argparse
 
 from nets.yolo import YoloBody
 from nets.yolo_training import (ModelEMA, YOLOLoss, get_lr_scheduler,
@@ -37,6 +38,15 @@ from utils.utils_fit import fit_one_epoch
    如果只是训练了几个Step是不会保存的，Epoch和Step的概念要捋清楚一下。
 '''
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--save_dir', type=str, default="logs", help='predict mode')
+    parser.add_argument('--model_path', type=str, default="logs", help='predict mode')
+    parser.add_argument('--Init_Epoch', type=int, default=0, help='Init_Epoch number')
+    parser.add_argument('--Freeze_batch_size', type=int, default=32, help='Freeze_batch_size number')
+    parser.add_argument('--Unfreeze_batch_size', type=int, default=16, help='Unfreeze_batch_size number')
+    opt = parser.parse_args()
     #---------------------------------#
     #   Cuda    是否使用Cuda
     #           没有GPU可以设置成False
@@ -49,9 +59,14 @@ if __name__ == "__main__":
     #   DP模式：
     #       设置            distributed = False
     #       在终端中输入    CUDA_VISIBLE_DEVICES=0,1 python train.py
+    #       在终端中输入    CUDA_VISIBLE_DEVICES=4,5,6,7 python train.py
+     
     #   DDP模式：
     #       设置            distributed = True
     #       在终端中输入    CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 train.py
+    #       在终端中输入    CUDA_VISIBLE_DEVICES=4,5,6,7 python -m torch.distributed.launch --nproc_per_node=4 train.py
+    #       在终端中输入    CUDA_VISIBLE_DEVICES=0,5,6,7 python -m torch.distributed.launch --nproc_per_node=4 train.py
+    #
     #---------------------------------------------------------------------#
     distributed     = False
     #---------------------------------------------------------------------#
@@ -88,7 +103,9 @@ if __name__ == "__main__":
     #   2、了解imagenet数据集，首先训练分类模型，获得网络的主干部分权值，分类模型的 主干部分 和该模型通用，基于此进行训练。
     #----------------------------------------------------------------------------------------------------------------------------#
     # model_path      = 'model_data/yolox_s.pth'
-    model_path      = ''
+    model_path      = opt.model_path
+    # model_path      = ''
+    
     #------------------------------------------------------#
     #   input_shape     输入的shape大小，一定要是32的倍数
     #------------------------------------------------------#
@@ -152,9 +169,9 @@ if __name__ == "__main__":
     #   Freeze_batch_size   模型冻结训练的batch_size
     #                       (当Freeze_Train=False时失效)
     #------------------------------------------------------------------#
-    Init_Epoch          = 0
+    Init_Epoch          = opt.Init_Epoch
     Freeze_Epoch        = 50
-    Freeze_batch_size   = 16
+    Freeze_batch_size   = opt.Freeze_batch_size
     #------------------------------------------------------------------#
     #   解冻阶段训练参数
     #   此时模型的主干不被冻结了，特征提取网络会发生改变
@@ -165,7 +182,7 @@ if __name__ == "__main__":
     #   Unfreeze_batch_size     模型在解冻后的batch_size
     #------------------------------------------------------------------#
     UnFreeze_Epoch      = 300
-    Unfreeze_batch_size = 8
+    Unfreeze_batch_size = opt.Unfreeze_batch_size
     #------------------------------------------------------------------#
     #   Freeze_Train    是否进行冻结训练
     #                   默认先冻结主干训练后解冻训练。
@@ -203,7 +220,7 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     #   save_dir        权值与日志文件保存的文件夹
     #------------------------------------------------------------------#
-    save_dir            = 'logs'
+    save_dir            = opt.save_dir
     #------------------------------------------------------------------#
     #   eval_flag       是否在训练时进行评估，评估对象为验证集
     #                   安装pycocotools库后，评估体验更佳。
@@ -220,7 +237,7 @@ if __name__ == "__main__":
     #                   开启后会加快数据读取速度，但是会占用更多内存
     #                   内存较小的电脑可以设置为2或者0  
     #------------------------------------------------------------------#
-    num_workers         = 4
+    num_workers         = 1
 
     #----------------------------------------------------#
     #   获得图片路径和标签
@@ -316,7 +333,7 @@ if __name__ == "__main__":
         model_train = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model_train)
     elif sync_bn:
         print("Sync_bn is not support in one gpu or not distributed.")
-
+#  
     if Cuda:
         if distributed:
             #----------------------------#
@@ -449,7 +466,7 @@ if __name__ == "__main__":
         else:
             train_sampler   = None
             val_sampler     = None
-            shuffle         = True
+            shuffle         = False
 
         gen             = DataLoader(train_dataset, shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=True,
                                     drop_last=True, collate_fn=yolo_dataset_collate, sampler=train_sampler)

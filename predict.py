@@ -7,11 +7,24 @@ import time
 import cv2
 import numpy as np
 from PIL import Image
+import argparse
+import os
 
 from yolo import YOLO
 
 if __name__ == "__main__":
-    yolo = YOLO()
+    
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--mode', type=str, default="predict", help='predict mode')
+    parser.add_argument('--model_path', type=str, default="logs/best_epoch_weights.pth", help='model_path')
+    parser.add_argument('--confidence', type=float, default=0.5, help='confidence')
+    parser.add_argument('--nms_iou', type=float, default=0.5, help='nms_iou')
+    parser.add_argument('--heatmap_save_path', type=str, default="model_data/heatmap_vision.png", help='heatmap_save_path')
+    parser.add_argument('--filepath', type=str, default="img/", help='predict mode')
+    opt = parser.parse_args()
+    
+    yolo = YOLO(model_path = opt.model_path, confidence = opt.confidence, nms_iou = opt.nms_iou)
     #----------------------------------------------------------------------------------------------------------#
     #   mode用于指定测试的模式：
     #   'predict'           表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
@@ -21,7 +34,7 @@ if __name__ == "__main__":
     #   'heatmap'           表示进行预测结果的热力图可视化，详情查看下方注释。
     #   'export_onnx'       表示将模型导出为onnx，需要pytorch1.7.1以上。
     #----------------------------------------------------------------------------------------------------------#
-    mode = "predict"
+    mode = opt.mode
     #-------------------------------------------------------------------------#
     #   crop                指定了是否在单张图片预测后对目标进行截取
     #   count               指定了是否进行目标的计数
@@ -63,7 +76,7 @@ if __name__ == "__main__":
     #   
     #   heatmap_save_path仅在mode='heatmap'有效
     #-------------------------------------------------------------------------#
-    heatmap_save_path = "model_data/heatmap_vision.png"
+    heatmap_save_path = opt.heatmap_save_path
     #-------------------------------------------------------------------------#
     #   simplify            使用Simplify onnx
     #   onnx_save_path      指定了onnx的保存路径
@@ -90,6 +103,7 @@ if __name__ == "__main__":
             else:
                 r_image = yolo.detect_image(image, crop = crop, count=count)
                 r_image.show()
+                r_image.save(os.path.join(dir_save_path, img.split('/')[-1].replace(".jpg", ".png")))
 
     elif mode == "video":
         capture = cv2.VideoCapture(video_path)
@@ -171,6 +185,21 @@ if __name__ == "__main__":
                 
     elif mode == "export_onnx":
         yolo.convert_to_onnx(simplify, onnx_save_path)
+    
+    elif mode == "fileheatmap":
         
+        listfile = os.listdir(opt.filepath)
+        for listfile in listfile:
+            print("filename: ", listfile)
+            filepath = opt.filepath + listfile
+            
+            try:
+                image = Image.open(filepath)
+            except:
+                print('Open Error! Try again!')
+                continue
+            else:
+                yolo.detect_heatmap(image, heatmap_save_path, listfile)
+                
     else:
         raise AssertionError("Please specify the correct mode: 'predict', 'video', 'fps', 'heatmap', 'export_onnx', 'dir_predict'.")

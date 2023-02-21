@@ -26,7 +26,10 @@ class YOLO(object):
         #   如果出现shape不匹配，同时要注意训练时的model_path和classes_path参数的修改
         #--------------------------------------------------------------------------#
         "model_path"        : 'model_data/yolox_s.pth',
-        "classes_path"      : 'model_data/coco_classes.txt',
+        # "model_path"        : 'logs/ep048-loss6.293-val_loss6.139.pth',
+        # "model_path"        : 'logs/best_epoch_weights.pth',
+        
+        "classes_path"      : 'model_data/voc_classes.txt',
         #---------------------------------------------------------------------#
         #   输入图片的大小，必须为32的倍数。
         #---------------------------------------------------------------------#
@@ -38,7 +41,7 @@ class YOLO(object):
         #---------------------------------------------------------------------#
         #   只有得分大于置信度的预测框会被保留下来
         #---------------------------------------------------------------------#
-        "confidence"        : 0.5,
+        "confidence"        : 0.3,
         #---------------------------------------------------------------------#
         #   非极大抑制所用到的nms_iou大小
         #---------------------------------------------------------------------#
@@ -263,7 +266,7 @@ class YOLO(object):
         tact_time = (t2 - t1) / test_interval
         return tact_time
 
-    def detect_heatmap(self, image, heatmap_save_path):
+    def detect_heatmap(self, image, heatmap_save_path, imgfile):
         import cv2
         import matplotlib
         matplotlib.use('Agg')
@@ -316,8 +319,8 @@ class YOLO(object):
         plt.axis('off')
         plt.subplots_adjust(top=1, bottom=0, right=1,  left=0, hspace=0, wspace=0)
         plt.margins(0, 0)
-        plt.savefig(heatmap_save_path, dpi=200)
-        print("Save to the " + heatmap_save_path)
+        plt.savefig(heatmap_save_path + imgfile, dpi=200)
+        print("Save to the " + heatmap_save_path + imgfile)
         plt.cla()
 
     def convert_to_onnx(self, simplify, model_path):
